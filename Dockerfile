@@ -10,7 +10,6 @@ ARG AWS_SECRET_ACCESS_KEY
 
 RUN mkdir -p ${FUNCTION_DIR}
 COPY .dvc ${FUNCTION_DIR}
-COPY ./src ${FUNCTION_DIR}
 COPY models.dvc ${FUNCTION_DIR}
 COPY requirements.txt ${FUNCTION_DIR}
 COPY lambda_handler.py ${FUNCTION_DIR}
