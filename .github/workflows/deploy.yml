@@ -1,0 +1,30 @@
+name: Deploy Lambda Function using Image from ECR
+env:
+  AWS_REGION: us-east-1
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region ${{ env.AWS_REGION }} 
+
+      - name: Deploy Lambda function
+        run: |
+          aws lambda create-function \
+          --function-name MLOps-Basics \
+          --role arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/lambda-mlops \
+          --package-type Image \
+          --code ImageUri=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/mlops-basics:latest \
+          --region ${{ env.AWS_REGION }}
+
