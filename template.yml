@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation Stack for creating S3 bucket and ECR repository
+
+Resources:
+  MyS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: models-dvc-xd
+
+  MyECRRepository:
+    Type: 'AWS::ECR::Repository'
+    Properties:
+      RepositoryName: mlops-basics
+
+Outputs:
+  S3BucketName:
+    Description: Name of the created S3 bucket
+    Value: !Ref MyS3Bucket
+
+  ECRRepositoryUri:
+    Description: URI of the created ECR repository
+    Value: !GetAtt MyECRRepository.RepositoryUri
