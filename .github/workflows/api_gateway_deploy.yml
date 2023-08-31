@@ -1,0 +1,54 @@
+name: Deploy API Gateway
+env:
+  AWS_REGION: us-east-1
+  ARN_LAMBDA_FUNCTION: arn:aws:lambda:us-east-1:${{ secrets.AWS_ACCOUNT_ID }}:function:MLOps-Basics
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create API Gateway
+        id: create_api_gateway
+        run: |
+          api_id=$(aws apigateway create-rest-api --name MLOpsBasicsAPI --query 'id' --output text)
+          echo "api_id=$api_id" >> $GITHUB_ENV  # Store api_id in environment variable
+
+      - name: Create Resources and Integration
+        run: |
+          root_resource_id=$(aws apigateway get-resources --rest-api-id ${{ env.api_id }} --query 'items[?path==`/`].id' --output text)
+          
+          # Create the "predict" resource
+          resource_id=$(aws apigateway create-resource --rest-api-id ${{ env.api_id }} --parent-id $root_resource_id --path-part predict --query 'id' --output text)
+          
+          # Set up the method and integration for "predict" resource
+          aws apigateway put-method --rest-api-id ${{ env.api_id }} --resource-id $resource_id --http-method POST --authorization-type NONE
+          aws apigateway put-integration --rest-api-id ${{ env.api_id }} --resource-id $resource_id --http-method POST --type AWS_PROXY --integration-http-method POST --uri arn:aws:apigateway:${{ env.AWS_REGION }}:lambda:path/2015-03-31/functions/${{ env.ARN_LAMBDA_FUNCTION }}/invocations
+          aws apigateway put-method-response --rest-api-id ${{ env.api_id }} --resource-id $resource_id --http-method POST --status-code 200
+          aws apigateway put-integration-response --rest-api-id ${{ env.api_id }} --resource-id $resource_id --http-method POST --status-code 200
+
+      - name: Enable API Gateway Trigger for Lambda
+        run: |
+          aws lambda add-permission \
+            --function-name $ARN_LAMBDA_FUNCTION \
+            --statement-id "apigateway-${{ env.api_id }}" \
+            --action lambda:InvokeFunction \
+            --principal apigateway.amazonaws.com \
+            --source-arn "arn:aws:execute-api:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:${{ env.api_id }}/*/*/predict"
+
+      - name: Deploy API Gateway
+        run: |
+          aws apigateway create-deployment --region ${{ env.AWS_REGION }} --rest-api-id ${{ env.api_id }} --stage-name deploy
+
